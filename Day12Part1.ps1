@@ -1,82 +1,57 @@
-﻿function GetDistance {
+﻿$Records = Get-Clipboard | ?{$_ -ne ""}
+
+function Get-PossibleArrangements {
     param (
-        $Galaxy1,
-        $Galaxy2,
-        $ExpansionRate = 2
+        $Record,
+        $CRC,
+        $Index = 0,
+        $Found = 0
     )
 
-    $Expansion = 0
+    [Int]$Length = $CRC[0]
+    $Arr = 0
 
-    foreach ($Row in $EmptyRows) {
-        if ($Row -in $Galaxy1[0]..$Galaxy2[0]) {
-            $Expansion++
+    $Remainder = $Record.Substring($Index)
+
+    for ($ndx = $Index; $ndx -le $Record.Length - $Length; $ndx++) {
+        $NewFound = $Found
+        $SLength = $Length + 2
+
+        if ($ndx -eq 0) {
+            $Regex = "(\.|\?|^)(\?|#){$Length}(\.|\?)"
+            $StartIndex = 0
+            $SLength--
+        } else {
+            $Regex = "(\.|\?)(\?|#){$Length}(\.|\?)"
+            $StartIndex = $ndx - 1
+        }
+
+        if ($SLength -gt $Record.Length - $StartIndex) {
+            $SLength = $Record.Length - $StartIndex
+            $Regex = "(\.|\?)(\?|#){$Length}(\.|\?|$)"
+        }
+
+        $Substring = $Record.Substring($StartIndex, $SLength)
+        if ($Substring -match $Regex) {
+            $NewFound += $Length
+            if ($CRC.Count -eq 1 -and $Record.Substring($StartIndex + $SLength) -notmatch "#") {
+                $Arr++
+            } elseif (($StartIndex + $Length + 1) -lt $Record.Length -and $CRC.Count -gt 1) {
+                $Arr += Get-PossibleArrangements $Record -CRC $CRC[($Group+1)..($CRC.Length-$Group+1)] -Index ($StartIndex + $SLength) -Found $NewFound
+            }
+        } elseif ($ndx -eq 0 -and $Substring[0] -match "#" -or $ndx -gt 0 -and $Substring[0..1] -match "#") {
+            break
         }
     }
-        
-    foreach ($Col in $EmptyCols) {
-        if ($Col -in $Galaxy1[1]..$Galaxy2[1]) {
-            $Expansion++
-        }
-    }
-        
-    $Distance = [Math]::Abs($Galaxy1[0] - $Galaxy2[0]) + [Math]::Abs($Galaxy1[1] - $Galaxy2[1])
-    $Distance += ($Expansion * $ExpansionRate) - $Expansion
-    $Distance
+    $Arr
 }
 
-$InMap = Get-Clipboard | ?{$_ -ne ""}
+$TotalArrange = 0
+foreach ($Row in $Records) {
+    $Record, $CRC = $Row -split " "
+    $CRC = $CRC -split ","
 
-$Map = New-Object System.Collections.ArrayList
-
-$EmptyRows = @()
-$RowNum = 0
-foreach ($Row in $InMap) {
-    $Map.Add((New-Object System.Collections.ArrayList)) | Out-Null
-    $Row = $Row -split "" | ?{$_ -ne ""}
-    $Map[-1].AddRange($Row)
-    if (($Row | select -Unique).Count -eq 1) {
-        $EmptyRows += $RowNum
-    }
-    $RowNum++
+    $TotalArrange += Get-PossibleArrangements $Record $CRC
 }
 
-#Find Empty Columns
-$EmptyCols = @()
-foreach ($Col in 0..$Map[0].Count) {
-    $Empty = $true
-    foreach ($Row in $Map) {
-        $Empty = $Empty -and $Row[$Col] -eq "."
-    }
-
-    if ($Empty) {
-        $EmptyCols += $Col
-    }
-}
-
-#Find Galaxies
-$Galaxies = @{}
-$Galaxy = 0
-for ($Row = 0; $Row -lt $Map.Count; $Row++) {
-    for ($Col = 0; $Col -lt $Map[$Row].Count; $Col++) {
-        if ($Map[$Row][$Col] -eq "#") {
-            $Galaxies[$Galaxy] = @($Row,$Col) 
-            $Galaxy++
-        }
-    }
-}
-
-#Find Pairs
-$Pairs = @{}
-foreach ($Galaxy in $Galaxies.Keys) {
-    for ($Pair = $Galaxy+1; $Pair -lt $Galaxies.Count; $Pair++) {
-        $Distance = GetDistance $Galaxies[$Galaxy] $Galaxies[$Pair]
-        $Pairs[$Galaxy,$Pair -join ","] = $Distance
-    }
-}
-
-$TotalDistance = 0
-foreach ($Pair in $Pairs.Keys) {
-    $TotalDistance += $Pairs[$Pair]
-}
-
-$TotalDistance
+$TotalArrange

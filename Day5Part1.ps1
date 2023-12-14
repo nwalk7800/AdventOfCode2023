@@ -23,7 +23,7 @@ function MapSection {
     foreach ($Source in $SrcList) {
         $Maps[$MapName][$Source] = $Source
         foreach ($Range in $Ranges) {
-            if ($Source -ge $Range.SrcStart -and $Source -le $Range.SrcStart + $Range.Length) {
+            if ($Source -ge $Range.SrcStart -and $Source -le $Range.SrcStart + $Range.Length - 1) {
                 $Offset = $Range.DstStart - $Range.SrcStart
                 $Maps[$MapName][$Source] = $Source + $Offset
                 break
